@@ -1,63 +1,52 @@
 import streamlit as st
-import subprocess
-import pyttsx3
-import speech_recognition as sr
-import os
+import platform
+from openai import OpenAI
 
-st.set_page_config(page_title="💡 Offline AI Dev Agent", layout="wide")
-st.title("🧠 Offline AI Developer Agent (LLaMA/Mistral)")
-st.markdown("Write code, debug, or solve DSA problems – totally offline!")
-
-# Chat history
-if "history" not in st.session_state:
-    st.session_state.history = []
-
-# Voice input
-use_voice = st.checkbox("🎙️ Use voice input")
-
-prompt = ""
-if use_voice:
-    st.info("Click the button and speak your prompt.")
-    if st.button("🎤 Record"):
-        r = sr.Recognizer()
-        with sr.Microphone() as source:
-            audio = r.listen(source)
+# Optional voice output (only runs locally)
+def speak_text(text):
+    if platform.system() != "Linux":  # Avoid running on Streamlit Cloud
         try:
-            prompt = r.recognize_google(audio)
-            st.success(f"You said: {prompt}")
-        except:
-            st.error("Sorry, could not recognize your voice.")
-else:
-    prompt = st.text_area("📝 What do you want help with?", height=200)
-
-# Run local LLM
-if st.button("🚀 Run with Local AI"):
-    if not prompt.strip():
-        st.warning("Please enter something.")
+            import pyttsx3
+            engine = pyttsx3.init()
+            engine.say(text)
+            engine.runAndWait()
+        except Exception as e:
+            print("Voice error (optional):", e)
     else:
-        with st.spinner("Thinking (local model)..."):
+        print("🔇 Voice not supported in cloud.")
+
+# Streamlit UI
+st.set_page_config(page_title="AI Dev Agent", layout="wide")
+st.title("🧠 AI Developer Agent + DSA Solver")
+
+st.markdown("Ask me to write code, debug programs, or solve DSA problems in any programming language!")
+
+api_key = st.text_input("🔑 Enter your OpenAI API Key", type="password")
+
+if not api_key:
+    st.warning("Please enter your OpenAI API key to use this agent.")
+    st.stop()
+
+prompt = st.text_area("📝 What do you want help with?", height=200)
+
+if st.button("🚀 Submit"):
+    if prompt.strip() == "":
+        st.warning("Please enter a prompt.")
+    else:
+        with st.spinner("Thinking..."):
             try:
-                result = subprocess.run(
-                    ["ollama", "run", "llama3", prompt],
-                    capture_output=True, text=True, timeout=120
+                client = OpenAI(api_key=api_key)
+
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "user", "content": prompt}]
                 )
-                response = result.stdout.strip()
+
+                answer = response.choices[0].message.content
                 st.success("✅ Response:")
-                st.code(response, language="python")
+                st.code(answer, language='python')
 
-                # Add to chat history
-                st.session_state.history.append({"user": prompt, "ai": response})
+                speak_text(answer)  # Optional voice output
 
-                # Speak out loud
-                tts = pyttsx3.init()
-                tts.say(response)
-                tts.runAndWait()
             except Exception as e:
-                st.error(f"Error: {e}")
-
-# Display chat history
-if st.session_state.history:
-    st.markdown("### 💬 Chat History")
-    for chat in reversed(st.session_state.history):
-        st.markdown(f"**You:** {chat['user']}")
-        st.markdown(f"**AI:** {chat['ai']}")
+                st.error(f"❌ Error: {e}")
