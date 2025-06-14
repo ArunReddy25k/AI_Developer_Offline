@@ -1,48 +1,30 @@
 import streamlit as st
-import subprocess
 import requests
-import platform
 
-# Optional: voice (only on local machine)
-def speak_text(text):
-    if platform.system() != "Linux":  # skip voice in cloud
-        try:
-            import pyttsx3
-            engine = pyttsx3.init()
-            engine.say(text)
-            engine.runAndWait()
-        except Exception as e:
-            print("Voice error (optional):", e)
+st.set_page_config(page_title="Free AI Dev Agent", layout="wide")
+st.title("💻 AI Dev Agent — Powered by Ollama (No OpenAI Required)")
 
-# Setup Streamlit UI
-st.set_page_config(page_title="Offline AI Developer", layout="wide")
-st.title("💻 AI Developer Agent (No OpenAI)")
+st.markdown("Write code, debug, and solve DSA problems with a local LLM.")
 
-st.markdown("Write code, debug, and solve DSA using a local LLM (via Ollama).")
+prompt = st.text_area("🧠 Ask your AI Agent something:", height=200)
 
-prompt = st.text_area("🧠 Ask anything:", height=200)
-
-if st.button("🚀 Run"):
+if st.button("🚀 Submit"):
     if prompt.strip() == "":
-        st.warning("Enter a prompt first.")
+        st.warning("Please enter a prompt.")
     else:
-        with st.spinner("Thinking with local LLM..."):
+        with st.spinner("Thinking using Ollama..."):
             try:
                 response = requests.post(
                     "http://localhost:11434/api/generate",
                     json={
-                        "model": "llama3",  # or any model available in Ollama
+                        "model": "llama3",     # Or another model like "mistral" or "codellama"
                         "prompt": prompt,
                         "stream": False
                     }
                 )
-
-                result = response.json()["response"]
+                result = response.json().get("response", "")
                 st.success("✅ Response:")
                 st.code(result, language="python")
-                speak_text(result)
-
             except Exception as e:
-                st.error(f"❌ Error: {e}")
-                st.info("Is Ollama running? Start it with a model like `ollama run llama3`.")
-
+                st.error(f"❌ Could not connect to Ollama.\n\nError: {e}")
+                st.info("Make sure you ran: `ollama run llama3` in your terminal.")
